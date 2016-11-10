@@ -166,6 +166,8 @@ def get_survey_plan_simple(mjd_range=(58000, 59095),
     """
     if fields is None:
         fields = load_ztf_fields(mwebv=True)
+        for k in fields.keys():
+            fields[k] = fields[k][:906]
 
     ra_shift = 360. / 365.25
     obs_days = np.arange(mjd_range[0], mjd_range[1]+1, 1)
