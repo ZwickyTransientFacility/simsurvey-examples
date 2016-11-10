@@ -183,7 +183,7 @@ def get_survey_plan_simple(mjd_range=(58000, 59095),
                        < ra_range[1]) &
                       (fields['dec'] > dec_range[0]) &
                       (fields['dec'] < dec_range[1]) &
-                      (fields['mwebv'] < 0.4))
+                      (fields['mwebv'] < mwebv_max))
         field_idx = np.where(field_mask)[0]
 
         # Sort first by ra then by dec
