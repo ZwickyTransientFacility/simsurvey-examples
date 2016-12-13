@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import simsurvey.cadence as simul
+import simsurvey as simul
 
 def load_ztf_fields(filename='data/ZTF_Fields.txt', mwebv=False):
     """Load the ZTF fields propose by Eran from the included file.
@@ -210,6 +210,97 @@ def get_survey_plan_simple(mjd_range=(58000, 59095),
                             fields={k: v for k, v in fields.items()
                                     if k in ['ra', 'dec', 'field_id',
                                              'width', 'height']})
+
+def get_survey_plan_nday(bands,
+                         mjd_range=(58000, 58365),
+                         dec_range=(-30, 90),
+                         ra_range=(0, 120),
+                         mwebv_max=None,
+                         t_obs=45.,
+                         fields=None,
+                         skynoise={'desg': 800., 'desr': 800., 'desi': 1260.},
+                         **kwargs):
+    """Generates a simple n-day cadence in multiple fitlers
+    
+    Parameters
+    ----------
+    bands: [dict]
+        Dictionary with filter names as keys and a tuple of integers
+        (cadence, offset), e.g. {'desg': (3,0), 'desr': (3,1), 'desi': (3,2)}
+        for a three-day cadence alternating between gri every night
+
+    mjd_range: [tuple of floats]
+        Start and end date (in units of days) for the plan
+
+    dec_range: [tuple of floats]
+        Allowed declination range for the centers of the fields.
+    
+    ra_range: [tuple of floats]
+        Allowed right ascension range for the centers of the fields *during the
+        first night*. This is shifted by a little bit each night to account for
+        Earth orbit the Sun.
+        
+    mwebv_max: [float]
+        Maximum MW E(B-V) value for field to be used.
+    
+    t_obs: [float]
+        Average time (in seconds) needed per observation (including slewing
+        and other overhead)    
+
+    fields: [dict similar to output of `load_ztf_fields()`]
+        Dictionary of field definitions; should include MW E(B-V).
+    
+    skynoise: [dict]
+        Dictionary of skynoise values to be used for each band.
+    
+    Return
+    ------
+    SurveyPlan object
+    """
+    if fields is None:
+        fields = load_ztf_fields(mwebv=True)
+        for k in fields.keys():
+            fields[k] = fields[k][:906]
+
+    ra_shift = 360. / 365.25
+    obs_days = np.arange(mjd_range[0], mjd_range[1]+1, 1)
+
+    obs = {'time': [], 'field': [], 'band': [], 'skynoise': []}
+
+    for l, d in enumerate(obs_days):
+        # Find fields that have their center within dec_range and in ra_range shifted
+        # by ra_shift for each day
+        field_mask = (((fields['ra'] - ra_shift*(d-obs_days[0]) + 180)%360 - 180
+                       > ra_range[0]) &
+                      ((fields['ra'] - ra_shift*(d-obs_days[0]) + 180)%360 - 180
+                       < ra_range[1]) &
+                      (fields['dec'] > dec_range[0]) &
+                      (fields['dec'] < dec_range[1]))
+
+        if mwebv_max is not None:
+            field_mask &= (fields['mwebv'] < mwebv_max)
+
+        field_idx = np.where(field_mask)[0]
+
+        # Sort first by ra then by dec
+        field_idx = field_idx[np.argsort(fields['ra'][field_idx])]
+        field_idx = field_idx[np.argsort(fields['dec'][field_idx])]
+        fields_obs = fields['field_id'][field_idx]
+
+        for b, (cad, off) in bands.items():
+            if l%cad == off:
+                for k, f in enumerate(fields_obs):
+                    obs['field'].append(f)
+                    obs['time'].append(d + k*t_obs)    
+                    obs['band'].append(b)
+                    obs['skynoise'].append(skynoise[b])            
+
+    return simul.SurveyPlan(time=obs['time'], band=obs['band'], obs_field=obs['field'],
+                            skynoise=obs['skynoise'],
+                            fields={k: v for k, v in fields.items()
+                                    if k in ['ra', 'dec', 'field_id',
+                                             'width', 'height']}, 
+                            **kwargs)
     
 def get_survey_lcs_single_field(tr, progress_bar=True, notebook=False,
                                 instprop=None, **kw):
