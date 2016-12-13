@@ -291,7 +291,7 @@ def get_survey_plan_nday(bands,
             if l%cad == off:
                 for k, f in enumerate(fields_obs):
                     obs['field'].append(f)
-                    obs['time'].append(d + k*t_obs)    
+                    obs['time'].append(d + k*t_obs/86400.)    
                     obs['band'].append(b)
                     obs['skynoise'].append(skynoise[b])            
 
