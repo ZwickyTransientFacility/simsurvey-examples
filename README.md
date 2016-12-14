@@ -1,8 +1,6 @@
 # simsurvey-examples
 Collection of examples of using the simsurvey package to simulate transient lightcurves
 
-To run this code you will require the current development versions of `simsurvey` and `astrobject` (pip will be updated soon), i.e. you need to clone the following repositories and install them along with their dependencies:
+To run this code you will require `simsurvey` and its dependencies, which can be install using pip: ```pip install simsurvey```
 
-https://github.com/MickaelRigault/simsurvey
-
-https://github.com/MickaelRigault/astrobject
+The notebooks will instruct you to download additional files.
