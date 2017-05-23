@@ -4,7 +4,7 @@
 import numpy as np
 import simsurvey as simul
 
-def load_ztf_fields(filename='data/ZTF_Fields.txt', mwebv=False):
+def load_ztf_fields(filename='data/ZTF_Fields.txt', mwebv=False, galactic=False):
     """Load the ZTF fields propose by Eran from the included file.
 
     Parameters
@@ -27,6 +27,9 @@ def load_ztf_fields(filename='data/ZTF_Fields.txt', mwebv=False):
 
     if mwebv:
         out['mwebv'] = fields[:,3]
+    if galactic:
+        out['l'] = fields[:,4]
+        out['b'] = fields[:,5]
 
     return out
 
@@ -92,6 +95,7 @@ def get_survey_plan_simple(mjd_range=(58000, 59095),
                            ra_range=(0, 120),
                            dec_good=30.,
                            mwebv_max=0.4,
+                           b_min=0,
                            t_obs=45.,
                            t_night=28801.,
                            n_repeat=80,
@@ -99,7 +103,7 @@ def get_survey_plan_simple(mjd_range=(58000, 59095),
                            band_str='des%s',                       
                            bands_alt=['rrrrrrrr', 'rrrrrrrr'],
                            fields=None,
-                           skynoise={'g': 800., 'r': 800., 'i': 1260.}):
+                           skynoise={'g': 1260., 'r': 1260., 'i': 1260.}):
     """Generates a more sophisticated plan using a list of field.
     This can be used to simulate a full survey until Eric's code .
     
@@ -165,7 +169,7 @@ def get_survey_plan_simple(mjd_range=(58000, 59095),
     SurveyPlan object
     """
     if fields is None:
-        fields = load_ztf_fields(mwebv=True)
+        fields = load_ztf_fields(mwebv=True, galactic=True)
         for k in fields.keys():
             fields[k] = fields[k][:906]
 
@@ -183,7 +187,8 @@ def get_survey_plan_simple(mjd_range=(58000, 59095),
                        < ra_range[1]) &
                       (fields['dec'] > dec_range[0]) &
                       (fields['dec'] < dec_range[1]) &
-                      (fields['mwebv'] < mwebv_max))
+                      (fields['mwebv'] < mwebv_max) &
+                      (np.abs(fields['b']) > b_min))
         field_idx = np.where(field_mask)[0]
 
         # Sort first by ra then by dec
@@ -213,11 +218,14 @@ def get_survey_plan_simple(mjd_range=(58000, 59095),
 
 def get_survey_plan_nday(bands,
                          mjd_range=(58000, 58365),
+                         dec_good=30,
                          dec_range=(-30, 90),
                          ra_range=(0, 120),
+                         n_fields=None,
                          mwebv_max=None,
                          t_obs=45.,
                          fields=None,
+                         b_min=0,
                          skynoise={'desg': 800., 'desr': 800., 'desi': 1260.},
                          **kwargs):
     """Generates a simple n-day cadence in multiple fitlers
@@ -258,7 +266,7 @@ def get_survey_plan_nday(bands,
     SurveyPlan object
     """
     if fields is None:
-        fields = load_ztf_fields(mwebv=True)
+        fields = load_ztf_fields(mwebv=True, galactic=True)
         for k in fields.keys():
             fields[k] = fields[k][:906]
 
@@ -270,12 +278,13 @@ def get_survey_plan_nday(bands,
     for l, d in enumerate(obs_days):
         # Find fields that have their center within dec_range and in ra_range shifted
         # by ra_shift for each day
-        field_mask = (((fields['ra'] - ra_shift*(d-obs_days[0]) + 180)%360 - 180
+        field_mask = (((fields['ra'] + ra_shift*(d-obs_days[0]) + 180)%360 - 180
                        > ra_range[0]) &
-                      ((fields['ra'] - ra_shift*(d-obs_days[0]) + 180)%360 - 180
+                      ((fields['ra'] + ra_shift*(d-obs_days[0]) + 180)%360 - 180
                        < ra_range[1]) &
                       (fields['dec'] > dec_range[0]) &
-                      (fields['dec'] < dec_range[1]))
+                      (fields['dec'] < dec_range[1]) &
+                      (np.abs(fields['b']) > b_min))
 
         if mwebv_max is not None:
             field_mask &= (fields['mwebv'] < mwebv_max)
@@ -284,14 +293,23 @@ def get_survey_plan_nday(bands,
 
         # Sort first by ra then by dec
         field_idx = field_idx[np.argsort(fields['ra'][field_idx])]
+        # field_idx = field_idx[np.argsort(np.abs(dec_good - fields['dec'][field_idx]))]
         field_idx = field_idx[np.argsort(fields['dec'][field_idx])]
         fields_obs = fields['field_id'][field_idx]
+        if n_fields is not None:
+            fields_obs = fields_obs[:n_fields]
 
-        for b, (cad, off) in bands.items():
-            if l%cad == off:
+        t_prev = {}
+        for k2, (b, cad, off) in enumerate(bands):
+            if l%cad == 0:
                 for k, f in enumerate(fields_obs):
+                    l_off = k*cad/len(fields_obs) + (l + off)%cad
                     obs['field'].append(f)
-                    obs['time'].append(d + k*t_obs/86400.)    
+                    if l + l_off not in t_prev.keys():
+                        t_prev[l+l_off] = d + l_off
+                    else:
+                        t_prev[l+l_off] += t_obs/86400.                     
+                    obs['time'].append(t_prev[l+l_off])
                     obs['band'].append(b)
                     obs['skynoise'].append(skynoise[b])            
 
@@ -340,3 +358,18 @@ def get_survey_lcs_simple(tr, progress_bar=True, notebook=False, instprop=None, 
     lcs = survey.get_lightcurves(progress_bar=progress_bar, notebook=notebook)
     
     return survey, lcs
+
+def make_weather(n, p, off=58000):
+    """
+    """
+    out = np.array([])
+    for n_, p_ in zip(n, p):
+        b = np.random.uniform(0, 1, int(n_)) < p_
+        out = np.concatenate((out, b))
+
+    return np.where(out)[0] + off
+
+def filter_bad_nights(lc, nights):
+    mask = np.array([int(t) in nights for t in lc['time']])
+
+    return lc[mask]
