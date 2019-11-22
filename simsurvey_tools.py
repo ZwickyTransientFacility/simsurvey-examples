@@ -33,11 +33,11 @@ def load_ztf_fields(filename='data/ZTF_Fields.txt', mwebv=False, galactic=False)
 
     return out
 
-def load_ztf_ccds(filename='data/ZTF_corners.txt'):
+def load_ztf_ccds(filename='data/ZTF_corners.txt', num_segs=16):
     """
     """
     ccd_corners = np.genfromtxt('data/ZTF_corners.txt', skip_header=1)
-    ccds = [ccd_corners[4*k:4*k+4, :2] for k in range(16)]
+    ccds = [ccd_corners[4*k:4*k+4, :2] for k in range(num_segs)]
 
     return ccds
 
