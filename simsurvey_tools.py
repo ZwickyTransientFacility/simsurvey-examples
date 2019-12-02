@@ -3,6 +3,7 @@
 
 import numpy as np
 import sncosmo
+import pandas as pd
 
 def load_ztf_fields(filename='data/ZTF_Fields.txt', mwebv=False, galactic=False):
     """Load the ZTF fields propose by Eran from the included file.
@@ -36,7 +37,7 @@ def load_ztf_fields(filename='data/ZTF_Fields.txt', mwebv=False, galactic=False)
 def load_ztf_ccds(filename='data/ZTF_corners.txt', num_segs=16):
     """
     """
-    ccd_corners = np.genfromtxt('data/ZTF_corners.txt', skip_header=1)
+    ccd_corners = np.genfromtxt(filename, skip_header=True)
     ccds = [ccd_corners[4*k:4*k+4, :2] for k in range(num_segs)]
 
     return ccds
