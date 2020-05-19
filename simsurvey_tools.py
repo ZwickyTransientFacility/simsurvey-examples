@@ -45,6 +45,7 @@ def load_ztf_filters():
     """
     """
     bands = {
+        'ztfi' : 'data/ztfi_eff.txt',
         'ztfr' : 'data/ztfr_eff.txt',
         'ztfg' : 'data/ztfg_eff.txt',
     }
