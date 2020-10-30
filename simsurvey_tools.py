@@ -20,7 +20,7 @@ def load_ztf_fields(filename='data/ZTF_Fields.txt', mwebv=False, galactic=False)
     ------
     Dictionary of np.arrays with the field coordinates, IDs (and exinction)
     """
-    fields = np.genfromtxt(filename, comments='%')
+    fields = np.genfromtxt(filename, comments='%', delimiter=',')
 
     out = {'field_id': np.array(fields[:,0], dtype=int),
            'ra': fields[:,1],
